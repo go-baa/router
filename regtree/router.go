@@ -13,7 +13,7 @@ type Router struct {
 	autoTrailingSlash bool
 	groups            []*group
 	nodes             [baa.RouteLength]*Tree
-	namedNodes        map[string]*Node
+	nameNodes         map[string]*Node
 	mu                sync.RWMutex
 	baa               *baa.Baa
 }
@@ -22,6 +22,7 @@ type Router struct {
 type Node struct {
 	paramNum int
 	format   string
+	name     string
 	root     *Router
 }
 
@@ -37,7 +38,7 @@ func New(b *baa.Baa) baa.Router {
 	for _, i := range baa.RouterMethods {
 		r.nodes[i] = NewTree("/", nil)
 	}
-	r.namedNodes = make(map[string]*Node)
+	r.nameNodes = make(map[string]*Node)
 	r.groups = make([]*group, 0)
 	r.baa = b
 	return r
@@ -70,8 +71,8 @@ func (r *Router) SetAutoTrailingSlash(v bool) {
 	r.autoTrailingSlash = v
 }
 
-// Match find matched route and returns handlerss
-func (r *Router) Match(method, uri string, c *baa.Context) []baa.HandlerFunc {
+// Match find matched route then returns handlers and name
+func (r *Router) Match(method, uri string, c *baa.Context) ([]baa.HandlerFunc, string) {
 	return r.nodes[baa.RouterMethods[method]].Get(uri, c)
 }
 
@@ -80,7 +81,7 @@ func (r *Router) URLFor(name string, args ...interface{}) string {
 	if name == "" {
 		return ""
 	}
-	node := r.namedNodes[name]
+	node := r.nameNodes[name]
 	if node == nil || len(node.format) == 0 {
 		return ""
 	}
@@ -152,15 +153,20 @@ func (r *Router) add(method, pattern string, handlers []baa.HandlerFunc) *Node {
 		panic("Router.add: pattern must begin /")
 	}
 
+	nameNode := newNode("", 0, r)
+
 	for i := 0; i < len(handlers); i++ {
 		handlers[i] = baa.WrapHandlerFunc(handlers[i])
 	}
 
-	node := r.nodes[baa.RouterMethods[method]].Add(pattern, handlers)
+	node := r.nodes[baa.RouterMethods[method]].Add(pattern, handlers, nameNode)
 	if node == nil {
 		panic("Router.add: tree.add error")
 	}
-	return newNode(string(node.formatStr()), len(node.params), r)
+
+	nameNode.format = string(node.formatStr())
+	nameNode.paramNum = len(node.params)
+	return nameNode
 }
 
 // Name set name of route
@@ -168,5 +174,6 @@ func (n *Node) Name(name string) {
 	if name == "" {
 		return
 	}
-	n.root.namedNodes[name] = n
+	n.name = name
+	n.root.nameNodes[name] = n
 }

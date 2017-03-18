@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	. "github.com/smartystreets/goconvey/convey"
 	"gopkg.in/baa.v1"
 )
 
@@ -143,4 +144,13 @@ func request(method, uri string) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
 	b.ServeHTTP(w, req)
 	return w
+}
+
+func TestNameRoute(t *testing.T) {
+	Convey("name route", t, func() {
+		b.Get("/foo/bar/:p", func(c *baa.Context) {}).Name("foo_bar")
+		h, name := b.Router().Match("GET", "/foo/bar/abc", c)
+		So(h, ShouldNotBeNil)
+		So(name, ShouldEqual, "foo_bar")
+	})
 }

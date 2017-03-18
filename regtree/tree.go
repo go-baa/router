@@ -18,6 +18,7 @@ type Tree struct {
 	schildren []*Tree
 	rchildren []*Tree
 	parent    *Tree
+	nameNode  *Node
 }
 
 // NewTree create a new tree route node
@@ -34,8 +35,9 @@ func NewTree(pattern string, handlers []baa.HandlerFunc) *Tree {
 	}
 }
 
-// Get returns matched node and param values for key
-func (t *Tree) Get(pattern string, c *baa.Context) []baa.HandlerFunc {
+// Get match node fill param values for key then return handlers and name
+func (t *Tree) Get(pattern string, c *baa.Context) ([]baa.HandlerFunc, string) {
+	var name string
 	// regexp rule
 	if !t.static {
 		matches := t.re.FindStringSubmatchIndex(pattern)
@@ -43,7 +45,10 @@ func (t *Tree) Get(pattern string, c *baa.Context) []baa.HandlerFunc {
 			for j := range t.params {
 				c.SetParam(t.params[j], pattern[matches[(j+1)*2]:matches[(j+1)*2+1]])
 			}
-			return t.handlers
+			if t.nameNode != nil {
+				name = t.nameNode.name
+			}
+			return t.handlers, name
 		}
 	}
 	// static rule
@@ -52,12 +57,15 @@ func (t *Tree) Get(pattern string, c *baa.Context) []baa.HandlerFunc {
 	}
 	// no prefix
 	if matched != len(t.pattern) {
-		return nil
+		return nil, ""
 	}
 	// found
 	if matched == len(pattern) {
 		if t.handlers != nil {
-			return t.handlers
+			if t.nameNode != nil {
+				name = t.nameNode.name
+			}
+			return t.handlers, name
 		}
 	}
 	// node is prefix
@@ -65,8 +73,8 @@ func (t *Tree) Get(pattern string, c *baa.Context) []baa.HandlerFunc {
 	// first, static rule
 	if len(pattern) > 0 {
 		if snode := t.findChild(pattern[0]); snode != nil {
-			if h := snode.Get(pattern, c); h != nil {
-				return h
+			if h, name := snode.Get(pattern, c); h != nil {
+				return h, name
 			}
 		}
 	}
@@ -80,14 +88,17 @@ func (t *Tree) Get(pattern string, c *baa.Context) []baa.HandlerFunc {
 		for j := range t.rchildren[i].params {
 			c.SetParam(t.rchildren[i].params[j], pattern[matches[(j+1)*2]:matches[(j+1)*2+1]])
 		}
-		return t.rchildren[i].handlers
+		if t.rchildren[i].nameNode != nil {
+			name = t.rchildren[i].nameNode.name
+		}
+		return t.rchildren[i].handlers, name
 	}
 
-	return nil
+	return nil, ""
 }
 
 // Add return new node with key and val
-func (t *Tree) Add(pattern string, handlers []baa.HandlerFunc) *Tree {
+func (t *Tree) Add(pattern string, handlers []baa.HandlerFunc, nameNode *Node) *Tree {
 	// find the common prefix
 	matched := 0
 	for ; matched < len(pattern) && matched < len(t.pattern) && pattern[matched] == t.pattern[matched]; matched++ {
@@ -106,6 +117,7 @@ func (t *Tree) Add(pattern string, handlers []baa.HandlerFunc) *Tree {
 					panic("the route is be exists: " + t.String())
 				}
 				t.handlers = handlers
+				t.nameNode = nameNode
 			}
 			return t
 		}
@@ -113,24 +125,26 @@ func (t *Tree) Add(pattern string, handlers []baa.HandlerFunc) *Tree {
 		// the node pattern is a prefix of the pattern: create a child node
 		pattern = pattern[matched:]
 		for _, child := range t.schildren {
-			if node := child.Add(pattern, handlers); node != nil {
+			if node := child.Add(pattern, handlers, nameNode); node != nil {
 				return node
 			}
 		}
 
 		// no child match, to be a new child
-		return t.addChild(pattern, handlers)
+		return t.addChild(pattern, handlers, nameNode)
 	}
 
 	// the pattern is a prefix of node pattern: create a new node instead of child
 	if matched == len(pattern) {
 		node := NewTree(t.pattern[matched:], t.handlers)
+		node.nameNode = t.nameNode
 		node.schildren = t.schildren
 		node.rchildren = t.rchildren
 		node.parent = t
 		t.pattern = pattern
 		t.format = []byte(t.pattern)
 		t.handlers = handlers
+		t.nameNode = nameNode
 		t.schildren = []*Tree{node}
 		t.rchildren = nil
 		return t
@@ -138,19 +152,21 @@ func (t *Tree) Add(pattern string, handlers []baa.HandlerFunc) *Tree {
 
 	// the node pattern shares a partial prefix with the key: split the node pattern
 	node := NewTree(t.pattern[matched:], t.handlers)
+	node.nameNode = t.nameNode
 	node.schildren = t.schildren
 	node.rchildren = t.rchildren
 	node.parent = t
 	t.pattern = pattern[:matched]
 	t.format = []byte(t.pattern)
 	t.handlers = nil
+	t.nameNode = nil
 	t.schildren = nil
 	t.rchildren = nil
 	t.schildren = append(t.schildren, node)
-	return t.addChild(pattern[matched:], handlers)
+	return t.addChild(pattern[matched:], handlers, nameNode)
 }
 
-func (t *Tree) addChild(pattern string, handlers []baa.HandlerFunc) *Tree {
+func (t *Tree) addChild(pattern string, handlers []baa.HandlerFunc, nameNode *Node) *Tree {
 	// check it is a static route child or not
 	var staticPattern, param, rule string
 	var params []string
@@ -209,6 +225,7 @@ func (t *Tree) addChild(pattern string, handlers []baa.HandlerFunc) *Tree {
 	if len(params) > 0 {
 		// key has regexp rule, new regexp rule
 		reNode = NewTree(string(newPattern[len(staticPattern):]), handlers)
+		reNode.nameNode = nameNode
 		reNode.static = false
 		reNode.params = params
 		reNode.format = format[len(staticPattern):]
@@ -231,6 +248,7 @@ func (t *Tree) addChild(pattern string, handlers []baa.HandlerFunc) *Tree {
 			return reNode
 		}
 		staticNode.handlers = handlers
+		staticNode.nameNode = nameNode
 		t.schildren = append(t.schildren, staticNode)
 		return staticNode
 	}

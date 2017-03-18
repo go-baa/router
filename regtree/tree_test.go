@@ -54,7 +54,7 @@ func TestTreeAdd(t *testing.T) {
 			h := NewTree("/", nil)
 			Convey(test.id, func() {
 				for _, entry := range test.entries {
-					node := h.Add(entry.pattern, []baa.HandlerFunc{f})
+					node := h.Add(entry.pattern, []baa.HandlerFunc{f}, nil)
 					if node == nil {
 						fmt.Printf("nil node: %#v", entry)
 					}
