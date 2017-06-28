@@ -140,3 +140,28 @@ func TestStoreGet(t *testing.T) {
 		}
 	})
 }
+
+func TestTreeRoutePrint2(t *testing.T) {
+	b.Get("/abc/:id", f)
+	b.Post("/abc/:id", f)
+	Convey("print routes", t, func() {
+		fmt.Println("")
+		for method, routes := range r.Routes() {
+			fmt.Println("Method: ", method)
+			for i, route := range routes {
+				fmt.Printf(" %3d %s\n", i, route)
+			}
+		}
+	})
+}
+
+func TestTreeRoutePrint3(t *testing.T) {
+	b.Get("/user/:id", f).Name("user_get")
+	b.Post("/user/:id", f).Name("user_update")
+	Convey("print named routes", t, func() {
+		fmt.Println("")
+		for name, route := range r.NamedRoutes() {
+			fmt.Printf("%20s \t %s\n", name, route)
+		}
+	})
+}

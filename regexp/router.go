@@ -116,6 +116,30 @@ func (r *Router) URLFor(name string, args ...interface{}) string {
 	return fmt.Sprintf(string(format), args...)
 }
 
+// Routes returns registered route uri in a string slice
+func (r *Router) Routes() map[string][]string {
+	routes := make(map[string][]string)
+	for _, method := range baa.RouterMethodName {
+		routes[method] = make([]string, 0)
+	}
+	for k := range r.nodes {
+		for i := range r.nodes[k] {
+			routes[baa.RouterMethodName[k]] = append(routes[baa.RouterMethodName[k]], r.nodes[k][i].String())
+		}
+	}
+
+	return routes
+}
+
+// NamedRoutes returns named route uri in a string slice
+func (r *Router) NamedRoutes() map[string]string {
+	routes := make(map[string]string)
+	for k, v := range r.nameNodes {
+		routes[k] = v.pattern
+	}
+	return routes
+}
+
 // Add registers a new handle with the given method, pattern and handlers.
 // add check training slash option.
 func (r *Router) Add(method, pattern string, handlers []baa.HandlerFunc) baa.RouteNode {
@@ -247,6 +271,11 @@ func (r *Router) add(method, pattern string, handlers []baa.HandlerFunc) *Node {
 	}
 	r.nodes[baa.RouterMethods[method]] = append(r.nodes[baa.RouterMethods[method]], tn)
 	return tn
+}
+
+// String returns pattern of node
+func (n *Node) String() string {
+	return n.pattern
 }
 
 // Name set name of route

@@ -93,6 +93,47 @@ func (r *Router) URLFor(name string, args ...interface{}) string {
 	return fmt.Sprintf(string(format), args...)
 }
 
+// Routes returns registered route uri in a string slice
+func (r *Router) Routes() map[string][]string {
+	routes := make(map[string][]string)
+	for _, method := range baa.RouterMethodName {
+		routes[method] = make([]string, 0)
+	}
+	for k := range r.nodes {
+		routes[baa.RouterMethodName[k]] = r.routes(r.nodes[k])
+	}
+
+	return routes
+}
+
+// routes print the route table
+func (r *Router) routes(l *Tree) []string {
+	if l == nil {
+		return nil
+	}
+	var data []string
+	if l.handlers != nil {
+		data = append(data, l.String())
+	}
+	l.schildren = append(l.schildren, l.rchildren...)
+	for i := range l.schildren {
+		if l.schildren[i] != nil {
+			data = append(data, r.routes(l.schildren[i])...)
+		}
+	}
+
+	return data
+}
+
+// NamedRoutes returns named route uri in a string slice
+func (r *Router) NamedRoutes() map[string]string {
+	routes := make(map[string]string)
+	for k, v := range r.nameNodes {
+		routes[k] = v.format
+	}
+	return routes
+}
+
 // Add registers a new handle with the given method, pattern and handlers.
 // add check training slash option.
 func (r *Router) Add(method, pattern string, handlers []baa.HandlerFunc) baa.RouteNode {
