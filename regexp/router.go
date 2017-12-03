@@ -147,7 +147,11 @@ func (r *Router) Add(method, pattern string, handlers []baa.HandlerFunc) baa.Rou
 		r.add("HEAD", pattern, handlers)
 	}
 	if r.autoTrailingSlash && (len(pattern) > 1 || len(r.groups) > 0) {
-		if pattern[len(pattern)-1] == '/' {
+		var index byte
+		if len(pattern) > 0 {
+			index = pattern[len(pattern)-1]
+		}
+		if index == '/' {
 			r.add(method, pattern[:len(pattern)-1], handlers)
 		} else {
 			r.add(method, pattern+"/", handlers)
