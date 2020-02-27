@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"sync"
 
-	"gopkg.in/baa.v1"
+	"github.com/go-baa/baa"
 )
 
 // Router provlider router for baa with regexp

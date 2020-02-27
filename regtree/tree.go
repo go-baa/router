@@ -3,7 +3,7 @@ package regtree
 import (
 	"regexp"
 
-	"gopkg.in/baa.v1"
+	"github.com/go-baa/baa"
 )
 
 // Tree provlider router store for baa with regexp and radix tree
